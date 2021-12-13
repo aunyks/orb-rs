@@ -18,14 +18,19 @@ async fn main() -> std::io::Result<()> {
     // Initialize logger
     // Using SPIDER_LOG_LEVEL envar to determine the log level, default
     // to all logs passing through (trace is the highest level)
-    let env = Env::default().filter_or("SPIDER_LOG_LEVEL", "orb=warn");
+    let env = Env::default().filter_or("SPIDER_LOG_LEVEL", "orb=trace");
     Builder::from_env(env).init();
 
     info!("Starting spider server: {}", BINDING_ADDRESS);
     HttpServer::new(|| {
         App::new()
             .route("/hey", web::get().to(hey))
+            // Optionally restrict methods to a certain route
+            // .route("/hey", web::post().to(|| HttpResponse::MethodNotAllowed()))
             .route("/hey/{name}", web::get().to(hey_name))
+        // Optionally set a default response, should nothing match the above definitions
+        // The default is 404 if not specified, but this can be changed
+        //.default_service(web::to(|| HttpResponse::MethodNotAllowed()))
     })
     .bind(BINDING_ADDRESS)?
     .run()
