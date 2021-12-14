@@ -4,13 +4,18 @@ use log::info;
 
 const BINDING_ADDRESS: &str = "localhost:8080";
 
+struct AppState {
+    app_name: String,
+}
+
 async fn hey(_req: HttpRequest) -> HttpResponse {
     HttpResponse::Ok().body("Hey there!")
 }
 
-async fn hey_name(req: HttpRequest) -> HttpResponse {
+async fn hey_name(req: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
+    let app_name = &data.app_name;
     let name = req.match_info().query("name");
-    HttpResponse::Ok().body(format!("Hey {}!", name))
+    HttpResponse::Ok().body(format!("Hey {}! From {}", name, app_name))
 }
 
 #[actix_web::main]
@@ -24,6 +29,10 @@ async fn main() -> std::io::Result<()> {
     info!("Starting spider server: {}", BINDING_ADDRESS);
     HttpServer::new(|| {
         App::new()
+            // Share AppState among all routes
+            .data(AppState {
+                app_name: String::from("orb"),
+            })
             .route("/hey", web::get().to(hey))
             // Optionally restrict methods to a certain route
             // .route("/hey", web::post().to(|| HttpResponse::MethodNotAllowed()))
@@ -57,10 +66,16 @@ mod handler_tests {
         let req = test::TestRequest::default()
             .param("name", "Dave")
             .to_http_request();
-        let mut resp = hey_name(req).await;
+        let mut resp = hey_name(
+            req,
+            web::Data::new(AppState {
+                app_name: String::from("orb test"),
+            }),
+        )
+        .await;
         let response_body = resp.take_body();
         let body = response_body.as_ref().unwrap();
         assert_eq!(resp.status(), http::StatusCode::OK);
-        assert_eq!(&Body::from("Hey Dave!"), body);
+        assert_eq!(&Body::from("Hey Dave! From orb test"), body);
     }
 }
