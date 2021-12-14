@@ -1,3 +1,4 @@
+use actix_files::Files;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use env_logger::{Builder, Env};
 use log::info;
@@ -8,7 +9,7 @@ struct AppState {
     app_name: String,
 }
 
-async fn hey(_req: HttpRequest) -> HttpResponse {
+async fn hey() -> HttpResponse {
     HttpResponse::Ok().body("Hey there!")
 }
 
@@ -16,6 +17,13 @@ async fn hey_name(req: HttpRequest, data: web::Data<AppState>) -> HttpResponse {
     let app_name = &data.app_name;
     let name = req.match_info().query("name");
     HttpResponse::Ok().body(format!("Hey {}! From {}", name, app_name))
+}
+
+async fn homepage() -> HttpResponse {
+    let homepage_html = include_str!("../views/index.html");
+    HttpResponse::Ok()
+        .content_type("text/html; charset=UTF-8")
+        .body(homepage_html)
 }
 
 #[actix_web::main]
@@ -26,17 +34,22 @@ async fn main() -> std::io::Result<()> {
     let env = Env::default().filter_or("SPIDER_LOG_LEVEL", "orb=trace");
     Builder::from_env(env).init();
 
-    info!("Starting spider server: {}", BINDING_ADDRESS);
+    info!("Starting orb server: http://{}", BINDING_ADDRESS);
     HttpServer::new(|| {
         App::new()
             // Share AppState among all routes
             .data(AppState {
                 app_name: String::from("orb"),
             })
+            .route("/", web::get().to(homepage))
             .route("/hey", web::get().to(hey))
             // Optionally restrict methods to a certain route
-            // .route("/hey", web::post().to(|| HttpResponse::MethodNotAllowed()))
+            // .route("/hey", web::post().to(|| HttpResponse::MethodNotAllowed())). By default they 404
             .route("/hey/{name}", web::get().to(hey_name))
+            // The serve_from arg (second arg) is the directory on system from which files will be served.
+            // it's relative to the project root (wherever Cargo.toml is). The first arg is the server root path
+            // from which files will be served
+            .service(Files::new("/static", "./static"))
         // Optionally set a default response, should nothing match the above definitions
         // The default is 404 if not specified, but this can be changed
         //.default_service(web::to(|| HttpResponse::MethodNotAllowed()))
@@ -53,8 +66,7 @@ mod handler_tests {
 
     #[actix_rt::test]
     async fn test_hey() {
-        let req = test::TestRequest::get().to_http_request();
-        let mut resp = hey(req).await;
+        let mut resp = hey().await;
         let response_body = resp.take_body();
         let body = response_body.as_ref().unwrap();
         assert_eq!(resp.status(), http::StatusCode::OK);
@@ -77,5 +89,15 @@ mod handler_tests {
         let body = response_body.as_ref().unwrap();
         assert_eq!(resp.status(), http::StatusCode::OK);
         assert_eq!(&Body::from("Hey Dave! From orb test"), body);
+    }
+
+    #[actix_rt::test]
+    async fn test_homepage() {
+        let mut resp = homepage().await;
+        let response_body = resp.take_body();
+        let body = response_body.as_ref().unwrap();
+        let expected_body_str = include_str!("../views/index.html");
+        assert_eq!(resp.status(), http::StatusCode::OK);
+        assert_eq!(&Body::from(expected_body_str), body);
     }
 }
