@@ -1,5 +1,8 @@
 use actix_files::Files;
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use actix_web::{
+    http::header::ContentEncoding, middleware::Compress, web, App, HttpRequest, HttpResponse,
+    HttpServer,
+};
 use env_logger::{Builder, Env};
 use log::info;
 use tera::{Context, Tera};
@@ -43,9 +46,9 @@ async fn html_bye(req: HttpRequest) -> HttpResponse {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // Initialize logger
-    // Using SPIDER_LOG_LEVEL envar to determine the log level, default
+    // Using ORB_LOG_LEVEL envar to determine the log level, default
     // to all logs passing through (trace is the highest level)
-    let env = Env::default().filter_or("SPIDER_LOG_LEVEL", "orb=trace");
+    let env = Env::default().filter_or("ORB_LOG_LEVEL", "orb=trace");
     Builder::from_env(env).init();
 
     info!("Starting orb server: http://{}", BINDING_ADDRESS);
@@ -55,6 +58,10 @@ async fn main() -> std::io::Result<()> {
             .data(AppState {
                 app_name: String::from("orb"),
             })
+            // Use compression middleware to gzip responses if the request
+            // signaled they're willing to accept it. Can use other values in
+            // ContentEncoding for other compression algorithms
+            .wrap(Compress::new(ContentEncoding::Gzip))
             .route("/", web::get().to(homepage))
             .route("/hey", web::get().to(hey))
             // Optionally restrict methods to a certain route
