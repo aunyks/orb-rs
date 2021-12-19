@@ -28,6 +28,6 @@ To build a release binary:
 cargo build --release
 ```
 
-Note that you can set the optimization levels for release builds with the `opt-level` value in `Cargo.toml`. More details can be found in [the Cargo reference](# https://doc.rust-lang.org/cargo/reference/profiles.html#opt-level).
+Note that you can set the optimization levels for release builds with the `opt-level` value in `Cargo.toml`. More details can be found in [the Cargo reference](https://doc.rust-lang.org/cargo/reference/profiles.html#opt-level).
 
 Copyright (C) 2021 Gerald Nash
